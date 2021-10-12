@@ -98,6 +98,17 @@ local function dispatch_package()
 	end
 end
 
+local function mysplit (inputstr, sep)
+	if sep == nil then
+			sep = "%s"
+	end
+	local t={}
+	for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+			table.insert(t, str)
+	end
+	return t
+end
+
 send_request("handshake")
 send_request("set", { what = "hello", value = "world" })
 while true do
@@ -106,9 +117,14 @@ while true do
 	if cmd then
 		if cmd == "quit" then
 			send_request("quit")
+		--test 增加设置kv的命令
+		elseif string.len(cmd) > 4 and string.sub(cmd,0,3)=="set" then
+			local strArray = mysplit(cmd, " ")
+			send_request("set", { what = strArray[2], value = strArray[3]})
 		else
 			send_request("get", { what = cmd })
 		end
+
 	else
 		socket.usleep(100)
 	end
