@@ -824,7 +824,7 @@ static void auxsetstr (lua_State *L, const TValue *t, const char *k) {
   const TValue *slot;
   TString *str = luaS_new(L, k);
   api_checknelems(L, 1);
-  if (luaV_fastset(L, t, str, slot, luaH_getstr)) {
+  if (luaV_fastget(L, t, str, slot, luaH_getstr)) {
     luaV_finishfastset(L, t, slot, s2v(L->top - 1));
     L->top--;  /* pop value */
   }
@@ -852,7 +852,7 @@ LUA_API void lua_settable (lua_State *L, int idx) {
   lua_lock(L);
   api_checknelems(L, 2);
   t = index2value(L, idx);
-  if (luaV_fastset(L, t, s2v(L->top - 2), slot, luaH_get)) {
+  if (luaV_fastget(L, t, s2v(L->top - 2), slot, luaH_get)) {
     luaV_finishfastset(L, t, slot, s2v(L->top - 1));
   }
   else
@@ -874,7 +874,7 @@ LUA_API void lua_seti (lua_State *L, int idx, lua_Integer n) {
   lua_lock(L);
   api_checknelems(L, 1);
   t = index2value(L, idx);
-  if (luaV_fastseti(L, t, n, slot)) {
+  if (luaV_fastgeti(L, t, n, slot)) {
     luaV_finishfastset(L, t, slot, s2v(L->top - 1));
   }
   else {
@@ -938,8 +938,6 @@ LUA_API int lua_setmetatable (lua_State *L, int objindex) {
   }
   switch (ttype(obj)) {
     case LUA_TTABLE: {
-      if (l_unlikely(isshared(hvalue(obj))))
-        luaG_runerror(L, "can't setmetatable to shared table");
       hvalue(obj)->metatable = mt;
       if (mt) {
         luaC_objbarrier(L, gcvalue(obj), mt);
@@ -1078,15 +1076,6 @@ LUA_API int lua_pcallk (lua_State *L, int nargs, int nresults, int errfunc,
   return status;
 }
 
-static void set_env (lua_State *L, LClosure *f) {
-  if (f->nupvalues >= 1) {  /* does it have an upvalue? */
-    /* get global table from registry */
-    const TValue *gt = getGtable(L);
-    /* set global table as 1st upvalue of 'f' (may be LUA_ENV) */
-    setobj(L, f->upvals[0]->v, gt);
-    luaC_barrier(L, f->upvals[0], gt);
-  }
-}
 
 LUA_API int lua_load (lua_State *L, lua_Reader reader, void *data,
                       const char *chunkname, const char *mode) {
@@ -1098,51 +1087,18 @@ LUA_API int lua_load (lua_State *L, lua_Reader reader, void *data,
   status = luaD_protectedparser(L, &z, chunkname, mode);
   if (status == LUA_OK) {  /* no errors? */
     LClosure *f = clLvalue(s2v(L->top - 1));  /* get newly created function */
-    set_env(L,f);
+    if (f->nupvalues >= 1) {  /* does it have an upvalue? */
+      /* get global table from registry */
+      const TValue *gt = getGtable(L);
+      /* set global table as 1st upvalue of 'f' (may be LUA_ENV) */
+      setobj(L, f->upvals[0]->v, gt);
+      luaC_barrier(L, f->upvals[0], gt);
+    }
   }
   lua_unlock(L);
   return status;
 }
 
-LUA_API void lua_clonefunction (lua_State *L, const void * fp) {
-  LClosure *cl;
-  LClosure *f = cast(LClosure *, fp);
-  api_check(L, isshared(f->p), "Not a shared proto");
-  lua_lock(L);
-  cl = luaF_newLclosure(L,f->nupvalues);
-  setclLvalue2s(L,L->top,cl);
-  api_incr_top(L);
-  cl->p = f->p;
-  luaF_initupvals(L, cl);
-  set_env(L,cl);
-  lua_unlock(L);
-}
-
-LUA_API void lua_sharefunction (lua_State *L, int index) {
-  if (!lua_isfunction(L,index) || lua_iscfunction(L,index))
-    luaG_runerror(L, "Only Lua function can share");
-  LClosure *f = cast(LClosure *, lua_topointer(L, index));
-  luaF_shareproto(f->p);
-}
-
-LUA_API void lua_sharestring (lua_State *L, int index) {
-  if (lua_type(L,index) != LUA_TSTRING)
-    luaG_runerror(L, "need a string to share");
-  TString *ts = tsvalue(index2value(L,index));
-  luaS_share(ts);
-}
-
-LUA_API void lua_clonetable(lua_State *L, const void * tp) {
-  Table *t = cast(Table *, tp);
-
-  if (l_unlikely(!isshared(t)))
-    luaG_runerror(L, "Not a shared table");
-
-  lua_lock(L);
-  sethvalue2s(L, L->top, t);
-  api_incr_top(L);
-  lua_unlock(L);
-}
 
 LUA_API int lua_dump (lua_State *L, lua_Writer writer, void *data, int strip) {
   int status;
