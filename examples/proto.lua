@@ -40,7 +40,14 @@ proto.s2c = sprotoparser.parse [[
 	session 1 : integer
 }
 
-heartbeat 1 {}
+heartbeat 1 {
+	request {
+		what 0 : string
+	}
+	response {
+		result 0: string
+	}
+}
 ]]
 
 return proto
