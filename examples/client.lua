@@ -64,7 +64,12 @@ local function send_request(name, args)
 	session = session + 1--每个客户端请求一个sessionID
 	local str = request(name, args, session)--使用sproto的c2s节打包请求内容
 	send_package(fd, str)--发送请求
-	print("Request:", session,name,args)--小写的输出是客户端向服务端发送的
+	print("Request:", session,name)--Pascal命名法的输出是客户端向服务端发送的
+	if args then
+		for k,v in pairs(args) do
+			print(k,v)
+		end
+	end
 end
 
 local last = ""
