@@ -43,6 +43,16 @@ local function send_package(pack)
 	socket.write(client_fd, package)
 end
 
+--test
+local function print_response(session, args)
+	skynet.error("RESPONSE", session)
+	if args then
+		for k,v in pairs(args) do
+			skynet.error(k,v)
+		end
+	end
+end
+
 skynet.register_protocol {
 	name = "client",
 	id = skynet.PTYPE_CLIENT,
@@ -64,7 +74,8 @@ skynet.register_protocol {
 			end
 		else
 			assert(type == "RESPONSE")
-			error "This example doesn't support request client"
+			--error "This example doesn't support request client"
+			print_response(...)
 		end
 	end
 }
@@ -77,9 +88,11 @@ function CMD.start(conf)
 	host = sprotoloader.load(1):host "package"
 	send_request = host:attach(sprotoloader.load(2))
 	skynet.fork(function()
+		local serverSession = 1
 		while true do
-			send_package(send_request "heartbeat")
+			send_package(send_request("heartbeat",{what="server"},serverSession))
 			skynet.sleep(500)
+			serverSession = serverSession + 1
 		end
 	end)
 

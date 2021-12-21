@@ -74,11 +74,19 @@ end
 
 local last = ""
 
-local function print_request(name, args)
+local function print_request(name, args,response)
 	print("REQUEST", name)--大写的输出是服务端向客户端发送的
 	if args then
 		for k,v in pairs(args) do
 			print(k,v)
+		end
+	end
+	--test client response
+	if name=="heartbeat" then
+		if(response) then
+			local r = response({result = "ok"})
+			print("resStr:"..r)
+			send_package(fd, r)
 		end
 	end
 end
