@@ -2,6 +2,7 @@ package.cpath = "luaclib/?.so;luaclib/?.dll;"
 local skynet = require "skynet"
 local cluster = require "skynet.cluster"
 local lfs = require "lfs"
+require "skynet.manager"	-- import skynet.register
 
 local CMD = {}
 local tasks = {}
@@ -29,8 +30,8 @@ skynet.start(function()
 			local f = assert(CMD[cmd])
 			skynet.ret(skynet.pack(f(subcmd, ...)))
 	end)
-
-    cluster.open "worker1"
+	skynet.register(".myWorker")
+	cluster.open "worker1"
 
 end)
 

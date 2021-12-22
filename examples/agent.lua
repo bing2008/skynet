@@ -101,7 +101,6 @@ function CMD.start(conf)
 
 		while true do
 			send_package(send_request("heartbeat",{what="server"},serverSession))
-			sendDoTask()
 			skynet.sleep(500)
 			serverSession = serverSession + 1
 		end

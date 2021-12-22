@@ -2,7 +2,7 @@ package.cpath = "luaclib/?.so;luaclib/?.dll;"
 local skynet = require "skynet"
 local cluster = require "skynet.cluster"
 local lfs = require "lfs"
-
+require "skynet.manager"	-- import skynet.register
 
 local CMD = {}
 local tasks = {}
@@ -11,7 +11,7 @@ local workers = {}
 
 
 --执行添加任务命令，在任务列表中增加一条任务
-function CMD.ADDTASK(srcFile)
+function CMD.addtask(srcFile)
     --do convert task
 	lastTaskId = lastTaskId + 1
 	local newtask = {}
@@ -59,6 +59,7 @@ end
 
 skynet.start(function()
 	skynet.dispatch("lua", function(session, source, cmd, subcmd, ...)
+		skynet.error(cmd)
 		local f = assert(CMD[cmd])
 		skynet.ret(skynet.pack(f(subcmd, ...)))
 	end)
@@ -70,6 +71,8 @@ skynet.start(function()
 			skynet.sleep(500)
 		end
 	end)
+
+	skynet.register "myController"
 end)
 
 
