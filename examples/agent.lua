@@ -11,7 +11,6 @@ local CMD = {}
 local REQUEST = {}
 local client_fd
 
-local tasks = {}
 local serverSession = 1
 
 function REQUEST:get()
@@ -34,15 +33,9 @@ function REQUEST:quit()
 end
 
 --test
-local taskid = 0
 function REQUEST:addtask()
-	taskid = taskid + 1
-	local newtask = {}
-	newtask.taskid = taskid
-	newtask.srcFile = self.srcFile
-	table.insert(tasks,newtask)
-	print("addtask:",newtask.taskid,newtask.srcFile )
-	return { result = newtask.taskid}
+	local r = skynet.call("myController", "lua", "addtask", self.srcFile)
+	return { result = r}
 end
 
 local function request(name, args, response)
@@ -68,16 +61,6 @@ local function print_response(session, args)
 	end
 end
 
-local function sendDoTask()
-	--sendtask
-	if #tasks>0 then
-		serverSession = serverSession + 1
-		local curtask = tasks[1]
-		skynet.error("sendDoTask: taskid:"..curtask.taskid,"srcFile:"..curtask.srcFile)
-		send_package(send_request("dotask",{taskid=curtask.taskid,srcFile=curtask.srcFile},serverSession))
-		table.remove(tasks,1)
-	end
-end
 
 skynet.register_protocol {
 	name = "client",
