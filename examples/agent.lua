@@ -11,6 +11,9 @@ local CMD = {}
 local REQUEST = {}
 local client_fd
 
+local tasks = {}
+local serverSession = 1
+
 function REQUEST:get()
 	print("get", self.what)
 	local r = skynet.call("SIMPLEDB", "lua", "get", self.what)
@@ -28,6 +31,18 @@ end
 
 function REQUEST:quit()
 	skynet.call(WATCHDOG, "lua", "close", client_fd)
+end
+
+--test
+local taskid = 0
+function REQUEST:addtask()
+	taskid = taskid + 1
+	local newtask = {}
+	newtask.taskid = taskid
+	newtask.srcFile = self.srcFile
+	table.insert(tasks,newtask)
+	print("addtask:",newtask.taskid,newtask.srcFile )
+	return { result = newtask.taskid}
 end
 
 local function request(name, args, response)
@@ -50,6 +65,17 @@ local function print_response(session, args)
 		for k,v in pairs(args) do
 			skynet.error(k,v)
 		end
+	end
+end
+
+local function sendDoTask()
+	--sendtask
+	if #tasks>0 then
+		serverSession = serverSession + 1
+		local curtask = tasks[1]
+		skynet.error("sendDoTask: taskid:"..curtask.taskid,"srcFile:"..curtask.srcFile)
+		send_package(send_request("dotask",{taskid=curtask.taskid,srcFile=curtask.srcFile},serverSession))
+		table.remove(tasks,1)
 	end
 end
 
@@ -80,6 +106,7 @@ skynet.register_protocol {
 	end
 }
 
+
 function CMD.start(conf)
 	local fd = conf.client
 	local gate = conf.gate
@@ -88,9 +115,10 @@ function CMD.start(conf)
 	host = sprotoloader.load(1):host "package"
 	send_request = host:attach(sprotoloader.load(2))
 	skynet.fork(function()
-		local serverSession = 1
+
 		while true do
 			send_package(send_request("heartbeat",{what="server"},serverSession))
+			sendDoTask()
 			skynet.sleep(500)
 			serverSession = serverSession + 1
 		end

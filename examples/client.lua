@@ -1,4 +1,4 @@
-package.cpath = "luaclib/?.so"
+package.cpath = "luaclib/?.so;luaclib/?.dll"
 package.path = "lualib/?.lua;examples/?.lua"
 
 if _VERSION ~= "Lua 5.4" then
@@ -8,6 +8,8 @@ end
 local socket = require "client.socket"
 local proto = require "proto"
 local sproto = require "sproto"
+local lfs = require "lfs"
+
 
 local host = sproto.new(proto.s2c):host "package"
 local request = host:attach(sproto.new(proto.c2s))
@@ -74,18 +76,42 @@ end
 
 local last = ""
 
-local function print_request(name, args,response)
-	print("REQUEST", name)--大写的输出是服务端向客户端发送的
-	if args then
-		for k,v in pairs(args) do
-			print(k,v)
-		end
-	end
+local function convertFile(source,target)
+    local exe = "F:\\source\\SView\\convert\\CadConverter\\CADConverter.exe"
+	local opt = "F:\\source\\SView\\convert\\CadConverter\\CADConverter.cfg"
+    local t = io.popen(exe.." "..source.." "..target .. " " .. opt)
+    local a = t:read("*all")
+    return a
+end
+
+--convertFile("SrcFiles\\pipe.prt", "TarFiles\\", opt)
+
+local tasks = {} --任务列表
+local function handle_request(name, args,response)
 	--test client response
 	if name=="heartbeat" then
 		if(response) then
-			local r = response({result = "ok"})
-			print("resStr:"..r)
+			local r = response({status = #tasks>0 and 1 or 0})
+			send_package(fd, r)
+		end
+	end
+
+	if name=="dotask" then
+		print("REQUEST", name)--大写的输出是服务端向客户端发送的
+		if args then
+			for k,v in pairs(args) do
+				print(k,v)
+			end
+		end
+
+		local taskId = args["taskid"]
+		local srcFile = args["srcFile"]
+
+		--do convert task
+		local covRet = convertFile("SrcFiles\\"..srcFile, "TarFiles\\")
+
+		if(response) then
+			local r = response({result = 0,error = covRet})
 			send_package(fd, r)
 		end
 	end
@@ -102,7 +128,7 @@ end
 
 local function print_package(t, ...)
 	if t == "REQUEST" then
-		print_request(...)
+		handle_request(...)
 	else
 		assert(t == "RESPONSE")
 		print_response(...)
@@ -150,8 +176,12 @@ while true do
 		elseif string.len(cmd) > 4 and string.sub(cmd,1,3)=="set" then
 			local strArray = mysplit(cmd, " ")
 			send_request("set", { what = strArray[2], value = strArray[3]})
-		else
+		elseif string.len(cmd) > 4 and string.sub(cmd,1,3)=="get" then
 			send_request("get", { what = cmd })
+		elseif string.len(cmd) > 4 and string.sub(cmd,1,7)=="addtask" then
+			local strArray = mysplit(cmd, " ")
+			send_request("addtask", { srcFile = strArray[2] })
+			print(cmd)
 		end
 	else
 		socket.usleep(100)

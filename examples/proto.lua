@@ -32,6 +32,15 @@ set 3 {
 
 quit 4 {}
 
+addtask 5 {
+	request {
+		srcFile 0 : string
+	}
+	response {
+		result 0: integer #enum: >0=success and return taskid -1=error
+	}
+}
+
 ]]
 
 proto.s2c = sprotoparser.parse [[
@@ -45,7 +54,18 @@ heartbeat 1 {
 		what 0 : string
 	}
 	response {
-		result 0: string
+		status 0: integer #enum: 0=Ready 1=busy
+	}
+}
+
+dotask 2 {
+	request {
+		taskid 0 :integer
+		srcFile 1 : string
+	}
+	response {
+		result 0: integer #enum: 0=success 1=error
+		error 1: string
 	}
 }
 ]]
